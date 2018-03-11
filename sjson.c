@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
+#include "intToStr.h"
 
 #define _FABS(d)	((double)(d)>0.0 ? (double)(d) : (double)-(d))
 
@@ -86,10 +87,11 @@ static char *parse_string(char *str, char *out, int outLen)
 					len=4;if (uc<0x80) len=1;else if (uc<0x800) len=2;else if (uc<0x10000) len=3; ptr2+=len;
 					
 					switch (len) {
-						case 4: *--ptr2 =((uc | 0x80) & 0xBF); uc >>= 6;
-						case 3: *--ptr2 =((uc | 0x80) & 0xBF); uc >>= 6;
-						case 2: *--ptr2 =((uc | 0x80) & 0xBF); uc >>= 6;
-						case 1: *--ptr2 =(uc | firstByteMark[len]);
+						case 4: *--ptr2 =((uc | 0x80) & 0xBF); uc >>= 6; break;
+						case 3: *--ptr2 =((uc | 0x80) & 0xBF); uc >>= 6; break;
+						case 2: *--ptr2 =((uc | 0x80) & 0xBF); uc >>= 6; break;
+						case 1: *--ptr2 =(uc | firstByteMark[len]); break;
+						default: break;
 					}
 					ptr2+=len;
 					break;
@@ -865,12 +867,13 @@ char *SJSON_ObjAddString(char *buf, char *end, const char *name, const char* val
 
 char *SJSON_ObjAddNum(char *buf, char *end, const char *name, double d)
 {
-    int totLen,objLen,nameLen,numLen;
+    int totLen,objLen,nameLen,numLen,tmpLen;
     char *value = 0;
     int comma = 0;
     int frac = 0;
 	int i = (int)d;
-	char str[64]; /* 64 should be enough for number storage */
+	char str[128]; /* 64 should be enough for number storage */
+	char * strPoint;
 
 	if (!buf) return 0; /* Fail on null. */
     if (!skip_object(buf)) return 0; /* check if valid JSON string */
@@ -893,16 +896,29 @@ char *SJSON_ObjAddNum(char *buf, char *end, const char *name, double d)
 	frac = (int)(_FABS(d-i)*1000000);
 	if (frac)
 	{
-		char *fmt;
 		/* Cause libc heap limitation on some embedded platform,
 		 * we don't use %f for double handling */
 		i = (int)_FABS(d);
-		fmt = d<0.0 ? "-%d.%06d" : "%d.%06d"; // in case of i=0
-		numLen = sprintf(str, fmt, i, frac);
+
+		numLen = 0;
+		strPoint = str;
+		if(d<0.0)
+		{
+			*strPoint = '-';
+			strPoint ++;
+			numLen = 1;
+		}
+
+		tmpLen = intToStr(strPoint, i);
+		strPoint += tmpLen;
+		numLen += tmpLen;
+
+		numLen += intToStr(strPoint, frac + 1000000);
+		*strPoint = '.';
 	}
 	else
 	{
-		numLen = sprintf(str, "%d", i);
+		numLen = intToStr(str, i);
 	}
 
     nameLen = _esc_strlen(name);  
@@ -1198,12 +1214,13 @@ char *SJSON_ArrayAddString(char *buf, char *end, const char* valueStr)
 
 char *SJSON_ArrayAddNum(char *buf, char *end, double d)
 {
-    int totLen, objLen, numLen;
+    int totLen, objLen, numLen, tmpLen;
     char *value = 0;
     int comma = 0;
     int frac = 0;
 	int i = (int)d;
-	char str[64]; /* 64 should be enough for number storage */
+	char str[128]; /* 64 should be enough for number storage */
+	char *strPoint;
 
 	if (!buf) return 0; /* Fail on null. */
     if (!skip_array(buf)) return 0; /* check if valid array */
@@ -1222,16 +1239,29 @@ char *SJSON_ArrayAddNum(char *buf, char *end, double d)
 	frac = (int)(_FABS(d-i)*1000000);
 	if (frac)
 	{
-		char *fmt;
 		/* Cause libc heap limitation on some embedded platform,
 		 * we don't use %f for double handling */
 		i = (int)_FABS(d);
-		fmt = d<0.0 ? "-%d.%06d" : "%d.%06d"; // in case of i=0
-		numLen = sprintf(str, fmt, i, frac);
+
+		numLen = 0;
+		strPoint = str;
+		if(d<0.0)
+		{
+			*strPoint = '-';
+			strPoint ++;
+			numLen = 1;
+		}
+
+		tmpLen = intToStr(strPoint, i);
+		strPoint += tmpLen;
+		numLen += tmpLen;
+
+		numLen += intToStr(strPoint, frac + 1000000);
+		*strPoint = '.';
 	}
 	else
 	{
-		numLen = sprintf(str, "%d", i);
+		numLen = intToStr(str, 1234);
 	}
 
 	objLen = numLen;

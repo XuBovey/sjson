@@ -2,19 +2,47 @@
 #include <stddef.h> // for NULL
 #include "sjson.h"
 
+#include "dbg.h"
 //#define PLATFORM_SYS_RT_THREAD		1
 
 #if defined(PLATFORM_SYS_RT_THREAD)
 #include <rtthread.h>
 #define DPRINTF rt_kprintf
 #else
-#include <stdio.h>
-#define DPRINTF    printf
+//#include <stdio.h>
+#define DPRINTF DBG_kprintf
 #endif
-
 
 #define FILE_BUF_SIZE	1024
 static char g_buf[FILE_BUF_SIZE];
+
+int sjson_Voltage(int vol)
+{
+	char *end, *out, *volt;
+	char *ret;
+	int type;
+	double number = 0.0;
+
+	end = g_buf + FILE_BUF_SIZE;
+	ret = SJSON_CreateRootObj(g_buf, end);
+
+	volt = SJSON_ObjAddNum(g_buf, end, "vol", vol);
+	DPRINTF("%s\n", g_buf);
+
+	out = SJSON_ToObjValue(g_buf, "vol", &type, &end);
+	if (!out)
+	{
+		DPRINTF("parse error!\n");
+		return -1;
+	}
+    if (type == SJSON_NUMBER)
+    {
+		volt = SJSON_ParseNum(volt, &number);
+		DPRINTF("%d.", (int)number);
+		DPRINTF("%d\n", (int)((number - (int)number)*1000000));
+    }
+    return 0;
+}
 
 int sjson_test(void)
 {
@@ -90,7 +118,14 @@ int sjson_test(void)
     if (type == SJSON_NUMBER)
     {
         out = SJSON_ParseNum(out, &number);
-        DPRINTF("%lf\n", number);
+//        DPRINTF("%lf\n", number);// not suport.
+        if(number < 0.0)
+        {
+        	DPRINTF("-");
+        	number = -number;
+        }
+        DPRINTF("%d.", (int)number);
+        DPRINTF("%d\n", (int)((number - (int)number)*1000000));
     }
 
     out = SJSON_ToObjValue(par, "param3", &type, &end);
@@ -129,8 +164,8 @@ int sjson_test(void)
     return 0;
 }
 
-int main(void)
-{
-    sjson_test();
-    return 0;
-}
+//int main(void)
+//{
+//    sjson_test();
+//    return 0;
+//}
